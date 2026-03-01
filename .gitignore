@@ -1,0 +1,29 @@
+# Android (Gradle, Android Studio)
+.gradle/
+build/
+*.iml
+.idea/
+capture/
+local.properties
+
+# Windows (Visual Studio, MSVC)
+**/obj/
+**/bin/
+**/.vs/
+*.user
+*.userosscache
+*.sln.docstates
+x64/
+x86/
+ARM/
+ARM64/
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# General
+.vscode/
+node_modules/
+dist/
+*.log
