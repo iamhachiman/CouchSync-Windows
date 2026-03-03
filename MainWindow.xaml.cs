@@ -226,5 +226,11 @@ namespace CouchSync
                 .AddText(text)
                 .Show();
         }
+
+        private void ClearAlerts_Click(object sender, RoutedEventArgs e)
+        {
+            _notifications.Clear();
+            ToastNotificationManagerCompat.History.Clear();
+        }
     }
 }
