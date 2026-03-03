@@ -160,7 +160,12 @@
                                             <TextBlock Text="{Binding Content}" FontSize="15" Foreground="#BBBBBB" TextWrapping="Wrap"/>
                                         </StackPanel>
                                         <!-- Timestamp -->
-                                        <TextBlock Grid.Column="1" Text="{Binding Timestamp}" FontSize="13" Foreground="#888888" VerticalAlignment="Top"/>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right">
+                                            <TextBlock Text="{Binding Timestamp}" FontSize="13" Foreground="#888888" HorizontalAlignment="Right" Margin="0,0,0,10"/>
+                                            <Button Width="24" Height="24" Background="Transparent" BorderBrush="Transparent" Padding="0" HorizontalAlignment="Right" ToolTip="Dismiss" Click="DismissNotification_Click" Tag="{Binding}">
+                                                <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#888888"/>
+                                            </Button>
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

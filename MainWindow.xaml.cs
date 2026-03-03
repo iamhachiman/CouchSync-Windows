@@ -21,11 +21,13 @@ namespace CouchSync
         public string Title { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
         public string Timestamp { get; set; } = string.Empty;
+        public string Key { get; set; } = string.Empty;
     }
 
     public partial class MainWindow : Window
     {
         private TcpListener? _tcpListener;
+        private StreamWriter? _currentClientWriter;
         private CancellationTokenSource _cts = new CancellationTokenSource();
         private ObservableCollection<NotificationItem> _notifications = new ObservableCollection<NotificationItem>();
         private string _pairingCode = string.Empty;
@@ -122,6 +124,8 @@ namespace CouchSync
                 bool authenticated = false;
                 using var stream = client.GetStream();
                 using var reader = new StreamReader(stream, Encoding.UTF8);
+                using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+                _currentClientWriter = writer;
 
                 Dispatcher.Invoke(() => NetworkStatusText.Text = "Client connecting...");
 
@@ -168,7 +172,8 @@ namespace CouchSync
                                         AppName = app,
                                         Title = title,
                                         Content = text,
-                                        Timestamp = DateTime.Now.ToString("HH:mm")
+                                        Timestamp = DateTime.Now.ToString("HH:mm"),
+                                        Key = node["key"]?.ToString() ?? ""
                                     });
                                     
                                     if (!isHistoric)
@@ -207,6 +212,7 @@ namespace CouchSync
             catch { }
             finally
             {
+                _currentClientWriter = null;
                 client.Close();
                 Dispatcher.Invoke(() => 
                 {
@@ -231,6 +237,16 @@ namespace CouchSync
         {
             _notifications.Clear();
             ToastNotificationManagerCompat.History.Clear();
+            try { _currentClientWriter?.WriteLine("{\"type\":\"clear_all\"}"); } catch {}
+        }
+
+        private void DismissNotification_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button btn && btn.Tag is NotificationItem item)
+            {
+                _notifications.Remove(item);
+                try { _currentClientWriter?.WriteLine($"{{\"type\":\"clear\",\"key\":\"{item.Key}\"}}"); } catch {}
+            }
         }
     }
 }
