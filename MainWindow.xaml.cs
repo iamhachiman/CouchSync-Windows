@@ -184,13 +184,24 @@ namespace CouchSync
                             }
                             else if (type == "notification_removed" && authenticated)
                             {
-                                string app = node["app"]?.ToString() ?? "Unknown App";
-                                string title = node["title"]?.ToString() ?? "";
-                                string text = node["text"]?.ToString() ?? "";
+                                string key = node["key"]?.ToString() ?? "";
                                 
                                 Dispatcher.Invoke(() =>
                                 {
-                                    var toRemove = _notifications.FirstOrDefault(n => n.AppName == app && n.Title == title && n.Content == text);
+                                    NotificationItem? toRemove = null;
+                                    if (!string.IsNullOrEmpty(key))
+                                    {
+                                        // Prefer matching by unique key (most reliable)
+                                        toRemove = _notifications.FirstOrDefault(n => n.Key == key);
+                                    }
+                                    if (toRemove == null)
+                                    {
+                                        // Fallback: match by app+title+text if key is missing
+                                        string app = node["app"]?.ToString() ?? "Unknown App";
+                                        string title = node["title"]?.ToString() ?? "";
+                                        string text = node["text"]?.ToString() ?? "";
+                                        toRemove = _notifications.FirstOrDefault(n => n.AppName == app && n.Title == title && n.Content == text);
+                                    }
                                     if (toRemove != null)
                                     {
                                         _notifications.Remove(toRemove);
