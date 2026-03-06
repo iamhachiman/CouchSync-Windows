@@ -26,6 +26,8 @@ namespace CouchSync
 
     public partial class MainWindow : Window
     {
+        private const string ToastGroup = "CouchSync";
+
         private TcpListener? _tcpListener;
         private StreamWriter? _currentClientWriter;
         private CancellationTokenSource _cts = new CancellationTokenSource();
@@ -40,6 +42,9 @@ namespace CouchSync
             NotificationList.ItemsSource = _notifications;
             Loaded += MainWindow_Loaded;
             Closing += MainWindow_Closing;
+
+            // Subscribe to toast activation/dismissed callbacks from Windows Action Center
+            ToastNotificationManagerCompat.OnActivated += ToastActivated;
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -146,15 +151,18 @@ namespace CouchSync
                                 if (code == _pairingCode)
                                 {
                                     authenticated = true;
+                                    // Send ack so Android reader loop gets a valid JSON line
+                                    await writer.WriteLineAsync("{\"type\":\"paired\"}");
                                     Dispatcher.Invoke(() => 
                                     {
-                                        NetworkStatusText.Text = "Waiting for connection..."; // reset for later
+                                        NetworkStatusText.Text = "Connected";
                                         PairingScreen.Visibility = Visibility.Collapsed;
                                         MainScreen.Visibility = Visibility.Visible;
                                     });
                                 }
                                 else
                                 {
+                                    await writer.WriteLineAsync("{\"type\":\"rejected\"}");
                                     break; // wrong code
                                 }
                             }
@@ -178,7 +186,7 @@ namespace CouchSync
                                     
                                     if (!isHistoric)
                                     {
-                                        ShowToast(app, title, text);
+                                        ShowToast(app, title, text, node["key"]?.ToString() ?? "");
                                     }
                                 });
                             }
@@ -205,6 +213,8 @@ namespace CouchSync
                                     if (toRemove != null)
                                     {
                                         _notifications.Remove(toRemove);
+                                        // Also remove from Windows Action Center
+                                        RemoveToastFromActionCenter(toRemove.Key);
                                     }
                                 });
                             }
@@ -234,20 +244,95 @@ namespace CouchSync
             }
         }
 
-        private void ShowToast(string app, string title, string text)
+        private void ShowToast(string app, string title, string text, string key)
         {
-            new ToastContentBuilder()
-                .AddArgument("action", "viewConversation")
+            // Use the notification key as the toast tag so we can look it up later
+            string tag = SanitizeToastTag(key);
+
+            var builder = new ToastContentBuilder()
+                .AddArgument("action", "viewNotification")
+                .AddArgument("key", key)
                 .AddText(app)
-                .AddText(title)
-                .AddText(text)
-                .Show();
+                .AddText(title);
+
+            if (!string.IsNullOrEmpty(text))
+                builder.AddText(text);
+
+            // Build a raw ToastNotification so we can set tag/group and wire up events
+            var toastContent = builder.GetToastContent();
+            var toast = new Windows.UI.Notifications.ToastNotification(toastContent.GetXml())
+            {
+                Tag   = tag,
+                Group = ToastGroup
+            };
+
+            // When the user dismisses the toast from Action Center → sync back
+            toast.Dismissed += (s, e) =>
+            {
+                // UserCanceled means the user explicitly swiped/clicked the X in Action Center
+                if (e.Reason == Windows.UI.Notifications.ToastDismissalReason.UserCanceled)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        var item = _notifications.FirstOrDefault(n => n.Key == key);
+                        if (item != null)
+                        {
+                            _notifications.Remove(item);
+                            // Tell the mobile app to dismiss this notification too
+                            try { _currentClientWriter?.WriteLine($"{{\"type\":\"clear\",\"key\":\"{key}\"}}" ); } catch { }
+                        }
+                    });
+                }
+            };
+
+            ToastNotificationManagerCompat.CreateToastNotifier().Show(toast);
+        }
+
+        /// <summary>
+        /// Removes a single toast from the Windows Action Center by its notification key.
+        /// </summary>
+        private void RemoveToastFromActionCenter(string key)
+        {
+            try
+            {
+                string tag = SanitizeToastTag(key);
+                ToastNotificationManagerCompat.History.Remove(tag, ToastGroup);
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Toast tags must be ≤ 16 characters, alphanumeric only.
+        /// We use the first 16 chars of a hex-encoded key.
+        /// </summary>
+        private static string SanitizeToastTag(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return Guid.NewGuid().ToString("N")[..16];
+            // Use a short hash so the tag is always valid but still unique
+            int hash = Math.Abs(key.GetHashCode());
+            return hash.ToString()[..Math.Min(hash.ToString().Length, 16)];
+        }
+
+        /// <summary>
+        /// Handles toast activation (user tapping the toast body in Action Center).
+        /// </summary>
+        private void ToastActivated(ToastNotificationActivatedEventArgsCompat e)
+        {
+            // Bring the window to the foreground when a toast is clicked
+            Dispatcher.Invoke(() =>
+            {
+                if (WindowState == WindowState.Minimized)
+                    WindowState = WindowState.Normal;
+                Activate();
+                Focus();
+            });
         }
 
         private void ClearAlerts_Click(object sender, RoutedEventArgs e)
         {
             _notifications.Clear();
-            ToastNotificationManagerCompat.History.Clear();
+            // Remove all CouchSync toasts from Action Center
+            ToastNotificationManagerCompat.History.RemoveGroup(ToastGroup);
             try { _currentClientWriter?.WriteLine("{\"type\":\"clear_all\"}"); } catch {}
         }
 
@@ -256,6 +341,8 @@ namespace CouchSync
             if (sender is System.Windows.Controls.Button btn && btn.Tag is NotificationItem item)
             {
                 _notifications.Remove(item);
+                // Remove corresponding toast from Action Center
+                RemoveToastFromActionCenter(item.Key);
                 try { _currentClientWriter?.WriteLine($"{{\"type\":\"clear\",\"key\":\"{item.Key}\"}}"); } catch {}
             }
         }
