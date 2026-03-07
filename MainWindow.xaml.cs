@@ -1,14 +1,18 @@
-﻿using System;
-using System.Linq;
+using System;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.WinUI.Notifications;
 using QRCoder;
@@ -28,13 +32,15 @@ namespace CouchSync
     {
         private const string ToastGroup = "CouchSync";
 
+        private readonly AppSessionState _sessionState = SessionStore.Load();
+        private readonly ObservableCollection<NotificationItem> _notifications = new();
+        private readonly CancellationTokenSource _cts = new();
+
         private TcpListener? _tcpListener;
         private StreamWriter? _currentClientWriter;
-        private CancellationTokenSource _cts = new CancellationTokenSource();
-        private ObservableCollection<NotificationItem> _notifications = new ObservableCollection<NotificationItem>();
         private string _pairingCode = string.Empty;
         private string _ipAddress = string.Empty;
-        private int _port = 50505;
+        private readonly int _port = 50505;
 
         public MainWindow()
         {
@@ -42,20 +48,21 @@ namespace CouchSync
             NotificationList.ItemsSource = _notifications;
             Loaded += MainWindow_Loaded;
             Closing += MainWindow_Closing;
-
-            // Subscribe to toast activation/dismissed callbacks from Windows Action Center
             ToastNotificationManagerCompat.OnActivated += ToastActivated;
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             InitializeServer();
+            ApplyShellState(isConnected: false, detail: _sessionState.HasTrustedDevice ? "Waiting for your phone to reconnect automatically." : "Open the Android app and scan the QR code.", deviceName: _sessionState.TrustedDeviceName);
             GenerateQrCode();
+            RefreshNotificationSummary();
             await StartListeningAsync();
         }
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
+            ToastNotificationManagerCompat.OnActivated -= ToastActivated;
             _cts.Cancel();
             _tcpListener?.Stop();
         }
@@ -63,10 +70,22 @@ namespace CouchSync
         private void InitializeServer()
         {
             _ipAddress = GetLocalIPAddress();
-            Random rng = new Random();
-            _pairingCode = rng.Next(1000, 9999).ToString();
+            _pairingCode = GetOrCreatePairingCode();
             PairingCodeText.Text = _pairingCode;
-            NetworkStatusText.Text = $"Listening on {_ipAddress}:{_port}\nWaiting for connection...";
+            NetworkStatusText.Text = $"Listening on {_ipAddress}:{_port}";
+            SessionStore.Save(_sessionState);
+        }
+
+        private string GetOrCreatePairingCode()
+        {
+            if (_sessionState.PairingCode.Length == 4 && _sessionState.PairingCode.All(char.IsDigit))
+            {
+                return _sessionState.PairingCode;
+            }
+
+            var code = Random.Shared.Next(1000, 9999).ToString();
+            _sessionState.PairingCode = code;
+            return code;
         }
 
         private string GetLocalIPAddress()
@@ -84,23 +103,27 @@ namespace CouchSync
 
         private void GenerateQrCode()
         {
-            string payload = $"{{\"ip\":\"{_ipAddress}\",\"port\":{_port},\"code\":\"{_pairingCode}\"}}";
-            using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
-            using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q))
-            using (BitmapByteQRCode qrCode = new BitmapByteQRCode(qrCodeData))
+            string payload = JsonSerializer.Serialize(new
             {
-                byte[] qrCodeImage = qrCode.GetGraphic(20);
-                using (MemoryStream stream = new MemoryStream(qrCodeImage))
-                {
-                    BitmapImage bitmapImage = new BitmapImage();
-                    bitmapImage.BeginInit();
-                    bitmapImage.StreamSource = stream;
-                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmapImage.EndInit();
-                    bitmapImage.Freeze();
-                    QrCodeImage.Source = bitmapImage;
-                }
-            }
+                ip = _ipAddress,
+                port = _port,
+                code = _pairingCode,
+                deviceName = Environment.MachineName
+            });
+
+            using QRCodeGenerator generator = new();
+            using QRCodeData qrCodeData = generator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
+            using BitmapByteQRCode qrCode = new(qrCodeData);
+            byte[] image = qrCode.GetGraphic(20);
+            using MemoryStream stream = new(image);
+
+            BitmapImage bitmap = new();
+            bitmap.BeginInit();
+            bitmap.StreamSource = stream;
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            QrCodeImage.Source = bitmap;
         }
 
         private async Task StartListeningAsync()
@@ -118,211 +141,225 @@ namespace CouchSync
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Dispatcher.Invoke(() => NetworkStatusText.Text = $"Error: {ex.Message}");
+                Dispatcher.Invoke(() => NetworkStatusText.Text = $"Listener error: {ex.Message}");
             }
         }
 
         private async Task HandleClientAsync(TcpClient client)
         {
+            bool authenticated = false;
+            string currentDeviceName = _sessionState.TrustedDeviceName;
+
             try
             {
-                bool authenticated = false;
-                using var stream = client.GetStream();
-                using var reader = new StreamReader(stream, Encoding.UTF8);
-                using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+                using NetworkStream stream = client.GetStream();
+                using StreamReader reader = new(stream, Encoding.UTF8);
+                using StreamWriter writer = new(stream, Encoding.UTF8) { AutoFlush = true };
                 _currentClientWriter = writer;
 
-                Dispatcher.Invoke(() => NetworkStatusText.Text = "Client connecting...");
+                Dispatcher.Invoke(() => ApplyShellState(false, "Phone connecting...", currentDeviceName));
 
                 while (client.Connected && !_cts.Token.IsCancellationRequested)
                 {
                     string? line = await reader.ReadLineAsync(_cts.Token);
-                    if (string.IsNullOrEmpty(line)) break;
+                    if (string.IsNullOrWhiteSpace(line))
+                    {
+                        break;
+                    }
 
                     try
                     {
-                        var node = System.Text.Json.Nodes.JsonNode.Parse(line);
-                        if (node != null)
+                        JsonNode? node = JsonNode.Parse(line);
+                        if (node == null)
                         {
-                            string? type = node["type"]?.ToString();
-                            if (type == "pair")
-                            {
-                                string? code = node["code"]?.ToString();
-                                if (code == _pairingCode)
+                            continue;
+                        }
+
+                        string type = node["type"]?.ToString() ?? string.Empty;
+                        switch (type)
+                        {
+                            case "pair":
                                 {
+                                    string code = node["code"]?.ToString() ?? string.Empty;
+                                    if (code != _pairingCode)
+                                    {
+                                        await writer.WriteLineAsync("{\"type\":\"rejected\"}");
+                                        return;
+                                    }
+
                                     authenticated = true;
-                                    // Send ack so Android reader loop gets a valid JSON line
+                                    currentDeviceName = node["deviceName"]?.ToString() ?? "Android phone";
+                                    _sessionState.TrustedDeviceName = currentDeviceName;
+                                    SessionStore.Save(_sessionState);
                                     await writer.WriteLineAsync("{\"type\":\"paired\"}");
-                                    Dispatcher.Invoke(() => 
-                                    {
-                                        NetworkStatusText.Text = "Connected";
-                                        PairingScreen.Visibility = Visibility.Collapsed;
-                                        MainScreen.Visibility = Visibility.Visible;
-                                    });
+
+                                    Dispatcher.Invoke(() => ApplyShellState(true, "Connected and syncing in real time.", currentDeviceName));
+                                    break;
                                 }
-                                else
-                                {
-                                    await writer.WriteLineAsync("{\"type\":\"rejected\"}");
-                                    break; // wrong code
-                                }
-                            }
-                            else if (type == "notification" && authenticated)
-                            {
-                                string app = node["app"]?.ToString() ?? "Unknown App";
-                                string title = node["title"]?.ToString() ?? "";
-                                string text = node["text"]?.ToString() ?? "";
-                                bool isHistoric = node["historic"]?.ToString() == "true";
-                                
-                                Dispatcher.Invoke(() =>
-                                {
-                                    _notifications.Insert(0, new NotificationItem
-                                    {
-                                        AppName = app,
-                                        Title = title,
-                                        Content = text,
-                                        Timestamp = DateTime.Now.ToString("HH:mm"),
-                                        Key = node["key"]?.ToString() ?? ""
-                                    });
-                                    
-                                    if (!isHistoric)
-                                    {
-                                        ShowToast(app, title, text, node["key"]?.ToString() ?? "");
-                                    }
-                                });
-                            }
-                            else if (type == "notification_removed" && authenticated)
-                            {
-                                string key = node["key"]?.ToString() ?? "";
-                                
-                                Dispatcher.Invoke(() =>
-                                {
-                                    NotificationItem? toRemove = null;
-                                    if (!string.IsNullOrEmpty(key))
-                                    {
-                                        // Prefer matching by unique key (most reliable)
-                                        toRemove = _notifications.FirstOrDefault(n => n.Key == key);
-                                    }
-                                    if (toRemove == null)
-                                    {
-                                        // Fallback: match by app+title+text if key is missing
-                                        string app = node["app"]?.ToString() ?? "Unknown App";
-                                        string title = node["title"]?.ToString() ?? "";
-                                        string text = node["text"]?.ToString() ?? "";
-                                        toRemove = _notifications.FirstOrDefault(n => n.AppName == app && n.Title == title && n.Content == text);
-                                    }
-                                    if (toRemove != null)
-                                    {
-                                        _notifications.Remove(toRemove);
-                                        // Also remove from Windows Action Center
-                                        RemoveToastFromActionCenter(toRemove.Key);
-                                    }
-                                });
-                            }
-                            else if (type == "ping")
-                            {
-                                // Handled safely to keep TCP connection alive
-                            }
+                            case "notification" when authenticated:
+                                HandleIncomingNotification(node);
+                                break;
+                            case "notification_removed" when authenticated:
+                                HandleRemovedNotification(node);
+                                break;
+                            case "ping":
+                                break;
                         }
                     }
-                    catch (Exception ex) 
-                    { 
-                        System.Diagnostics.Debug.WriteLine($"JSON Error: {ex.Message} on line: {line}"); 
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"JSON Error: {ex.Message} on line: {line}");
                     }
                 }
             }
-            catch { }
+            catch
+            {
+            }
             finally
             {
                 _currentClientWriter = null;
                 client.Close();
-                Dispatcher.Invoke(() => 
-                {
-                    NetworkStatusText.Text = "Waiting for connection...";
-                    PairingScreen.Visibility = Visibility.Visible;
-                    MainScreen.Visibility = Visibility.Collapsed;
-                });
+                Dispatcher.Invoke(() => ApplyShellState(false, "Waiting for your phone to reconnect automatically.", currentDeviceName));
             }
+        }
+
+        private void HandleIncomingNotification(JsonNode node)
+        {
+            string app = node["app"]?.ToString() ?? "Unknown App";
+            string title = node["title"]?.ToString() ?? string.Empty;
+            string text = node["text"]?.ToString() ?? string.Empty;
+            bool isHistoric = string.Equals(node["historic"]?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+            string key = node["key"]?.ToString() ?? string.Empty;
+
+            Dispatcher.Invoke(() =>
+            {
+                var existing = _notifications.FirstOrDefault(item => item.Key == key && !string.IsNullOrWhiteSpace(key));
+                if (existing != null)
+                {
+                    _notifications.Remove(existing);
+                }
+
+                _notifications.Insert(0, new NotificationItem
+                {
+                    AppName = app,
+                    Title = title,
+                    Content = text,
+                    Timestamp = DateTime.Now.ToString("HH:mm"),
+                    Key = key
+                });
+
+                RefreshNotificationSummary();
+
+                if (!isHistoric)
+                {
+                    ShowToast(app, title, text, key);
+                }
+            });
+        }
+
+        private void HandleRemovedNotification(JsonNode node)
+        {
+            string key = node["key"]?.ToString() ?? string.Empty;
+            string app = node["app"]?.ToString() ?? string.Empty;
+            string title = node["title"]?.ToString() ?? string.Empty;
+            string text = node["text"]?.ToString() ?? string.Empty;
+
+            Dispatcher.Invoke(() =>
+            {
+                NotificationItem? match = null;
+                if (!string.IsNullOrWhiteSpace(key))
+                {
+                    match = _notifications.FirstOrDefault(item => item.Key == key);
+                }
+
+                match ??= _notifications.FirstOrDefault(item =>
+                    item.AppName == app && item.Title == title && item.Content == text);
+
+                if (match != null)
+                {
+                    _notifications.Remove(match);
+                    RemoveToastFromActionCenter(match.Key);
+                    RefreshNotificationSummary();
+                }
+            });
         }
 
         private void ShowToast(string app, string title, string text, string key)
         {
-            // Use the notification key as the toast tag so we can look it up later
             string tag = SanitizeToastTag(key);
 
             var builder = new ToastContentBuilder()
                 .AddArgument("action", "viewNotification")
                 .AddArgument("key", key)
                 .AddText(app)
-                .AddText(title);
+                .AddText(string.IsNullOrWhiteSpace(title) ? "New notification" : title);
 
-            if (!string.IsNullOrEmpty(text))
-                builder.AddText(text);
-
-            // Build a raw ToastNotification so we can set tag/group and wire up events
-            var toastContent = builder.GetToastContent();
-            var toast = new Windows.UI.Notifications.ToastNotification(toastContent.GetXml())
+            if (!string.IsNullOrWhiteSpace(text))
             {
-                Tag   = tag,
+                builder.AddText(text);
+            }
+
+            var toast = new Windows.UI.Notifications.ToastNotification(builder.GetToastContent().GetXml())
+            {
+                Tag = tag,
                 Group = ToastGroup
             };
 
-            // When the user dismisses the toast from Action Center → sync back
-            toast.Dismissed += (s, e) =>
+            toast.Dismissed += (_, e) =>
             {
-                // UserCanceled means the user explicitly swiped/clicked the X in Action Center
                 if (e.Reason == Windows.UI.Notifications.ToastDismissalReason.UserCanceled)
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        var item = _notifications.FirstOrDefault(n => n.Key == key);
-                        if (item != null)
-                        {
-                            _notifications.Remove(item);
-                            // Tell the mobile app to dismiss this notification too
-                            try { _currentClientWriter?.WriteLine($"{{\"type\":\"clear\",\"key\":\"{key}\"}}" ); } catch { }
-                        }
-                    });
+                    Dispatcher.Invoke(() => RemoveNotificationEverywhere(key, propagateToPhone: true));
                 }
             };
 
             ToastNotificationManagerCompat.CreateToastNotifier().Show(toast);
         }
 
-        /// <summary>
-        /// Removes a single toast from the Windows Action Center by its notification key.
-        /// </summary>
         private void RemoveToastFromActionCenter(string key)
         {
             try
             {
-                string tag = SanitizeToastTag(key);
-                ToastNotificationManagerCompat.History.Remove(tag, ToastGroup);
+                ToastNotificationManagerCompat.History.Remove(SanitizeToastTag(key), ToastGroup);
             }
-            catch { }
+            catch
+            {
+            }
         }
 
-        /// <summary>
-        /// Toast tags must be ≤ 16 characters, alphanumeric only.
-        /// We use the first 16 chars of a hex-encoded key.
-        /// </summary>
         private static string SanitizeToastTag(string key)
         {
-            if (string.IsNullOrEmpty(key)) return Guid.NewGuid().ToString("N")[..16];
-            // Use a short hash so the tag is always valid but still unique
-            int hash = Math.Abs(key.GetHashCode());
-            return hash.ToString()[..Math.Min(hash.ToString().Length, 16)];
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return Guid.NewGuid().ToString("N")[..16];
+            }
+
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(key));
+            return Convert.ToHexString(hash)[..16];
         }
 
-        /// <summary>
-        /// Handles toast activation (user tapping the toast body in Action Center).
-        /// </summary>
         private void ToastActivated(ToastNotificationActivatedEventArgsCompat e)
         {
-            // Bring the window to the foreground when a toast is clicked
             Dispatcher.Invoke(() =>
             {
+                try
+                {
+                    var args = ToastArguments.Parse(e.Argument);
+                    args.TryGetValue("key", out string key);
+                    if (!string.IsNullOrWhiteSpace(key))
+                    {
+                        RemoveNotificationEverywhere(key, propagateToPhone: true);
+                    }
+                }
+                catch
+                {
+                }
+
                 if (WindowState == WindowState.Minimized)
+                {
                     WindowState = WindowState.Normal;
+                }
+
                 Activate();
                 Focus();
             });
@@ -331,20 +368,85 @@ namespace CouchSync
         private void ClearAlerts_Click(object sender, RoutedEventArgs e)
         {
             _notifications.Clear();
-            // Remove all CouchSync toasts from Action Center
             ToastNotificationManagerCompat.History.RemoveGroup(ToastGroup);
-            try { _currentClientWriter?.WriteLine("{\"type\":\"clear_all\"}"); } catch {}
+            RefreshNotificationSummary();
+            TrySendToPhone("{\"type\":\"clear_all\"}");
         }
 
         private void DismissNotification_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is System.Windows.Controls.Button btn && btn.Tag is NotificationItem item)
+            if (sender is Button button && button.Tag is NotificationItem item)
+            {
+                RemoveNotificationEverywhere(item.Key, propagateToPhone: true);
+            }
+        }
+
+        private void RemoveNotificationEverywhere(string key, bool propagateToPhone)
+        {
+            NotificationItem? item = _notifications.FirstOrDefault(entry => entry.Key == key);
+            if (item != null)
             {
                 _notifications.Remove(item);
-                // Remove corresponding toast from Action Center
-                RemoveToastFromActionCenter(item.Key);
-                try { _currentClientWriter?.WriteLine($"{{\"type\":\"clear\",\"key\":\"{item.Key}\"}}"); } catch {}
             }
+
+            RemoveToastFromActionCenter(key);
+            RefreshNotificationSummary();
+
+            if (propagateToPhone)
+            {
+                string escapedKey = JsonSerializer.Serialize(key);
+                TrySendToPhone($"{{\"type\":\"clear\",\"key\":{escapedKey}}}");
+            }
+        }
+
+        private void TrySendToPhone(string payload)
+        {
+            try
+            {
+                _currentClientWriter?.WriteLine(payload);
+            }
+            catch
+            {
+            }
+        }
+
+        private void ApplyShellState(bool isConnected, string detail, string? deviceName)
+        {
+            bool showDashboard = _sessionState.HasTrustedDevice || !string.IsNullOrWhiteSpace(deviceName);
+            PairingScreen.Visibility = showDashboard ? Visibility.Collapsed : Visibility.Visible;
+            MainScreen.Visibility = showDashboard ? Visibility.Visible : Visibility.Collapsed;
+
+            NetworkStatusText.Text = _sessionState.HasTrustedDevice
+                ? $"Listening on {_ipAddress}:{_port}. Trusted device saved."
+                : $"Listening on {_ipAddress}:{_port}";
+
+            if (!showDashboard)
+            {
+                return;
+            }
+
+            ConnectedDeviceNameText.Text = string.IsNullOrWhiteSpace(deviceName)
+                ? (_sessionState.HasTrustedDevice ? _sessionState.TrustedDeviceName : "Android phone")
+                : deviceName;
+            ConnectionStateText.Text = isConnected ? "Connected" : "Waiting for reconnect";
+            ConnectionDetailText.Text = detail;
+            ConnectionStateDot.Fill = CreateBrush(isConnected ? "#57D18D" : "#F7B955");
+            ConnectionStatePill.Background = CreateBrush(isConnected ? "#1F57D18D" : "#1FF7B955");
+        }
+
+        private void RefreshNotificationSummary()
+        {
+            NotificationCountText.Text = _notifications.Count switch
+            {
+                1 => "1 alert",
+                _ => $"{_notifications.Count} alerts"
+            };
+            EmptyStatePanel.Visibility = _notifications.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private static SolidColorBrush CreateBrush(string hex)
+        {
+            return (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
         }
     }
 }

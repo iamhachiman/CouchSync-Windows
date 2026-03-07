@@ -1,177 +1,189 @@
-﻿<Window x:Class="CouchSync.MainWindow"
+<Window x:Class="CouchSync.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:local="clr-namespace:CouchSync"
         mc:Ignorable="d"
-        Title="CouchSync" Height="750" Width="1100"
+        Title="CouchSync" Height="760" Width="1180"
         WindowStartupLocation="CenterScreen"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         TextElement.FontWeight="Regular"
         TextElement.FontSize="14"
-        TextOptions.TextFormattingMode="Ideal"
-        TextOptions.TextRenderingMode="Auto"
-        FontFamily="{DynamicResource MaterialDesignFont}"
-        Background="#0f0c29">
+        FontFamily="Segoe UI Variable Display"
+        Background="#07111F">
 
     <Window.Resources>
-        <!-- Gradients -->
-        <LinearGradientBrush x:Key="BackgroundGradient" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#0f0c29" Offset="0"/>
-            <GradientStop Color="#302b63" Offset="0.5"/>
-            <GradientStop Color="#24243e" Offset="1"/>
-        </LinearGradientBrush>
-        <LinearGradientBrush x:Key="CardGradient" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#1AFFFFFF" Offset="0"/>
-            <GradientStop Color="#05FFFFFF" Offset="1"/>
+        <LinearGradientBrush x:Key="WindowGradient" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#07111F" Offset="0"/>
+            <GradientStop Color="#102033" Offset="0.52"/>
+            <GradientStop Color="#16304A" Offset="1"/>
         </LinearGradientBrush>
         <LinearGradientBrush x:Key="AccentGradient" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#FF6A00" Offset="0"/>
-            <GradientStop Color="#EE0979" Offset="1"/>
+            <GradientStop Color="#57D18D" Offset="0"/>
+            <GradientStop Color="#2EA2A0" Offset="1"/>
         </LinearGradientBrush>
+        <SolidColorBrush x:Key="CardBrush" Color="#1AFFFFFF"/>
+        <SolidColorBrush x:Key="BorderBrushSoft" Color="#24FFFFFF"/>
+        <SolidColorBrush x:Key="TextMuted" Color="#9AB2C8"/>
+        <SolidColorBrush x:Key="WarningBrush" Color="#F7B955"/>
+        <SolidColorBrush x:Key="SuccessBrush" Color="#57D18D"/>
     </Window.Resources>
 
-    <Grid Background="{StaticResource BackgroundGradient}">
-        <!-- Glass Effect Overlay -->
-        <Border Background="#10000000" IsHitTestVisible="False" />
+    <Grid Background="{StaticResource WindowGradient}">
+        <Border Background="#10000000" IsHitTestVisible="False"/>
 
-        <!-- PAIRING SCREEN -->
         <Grid x:Name="PairingScreen" Visibility="Visible">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="CouchSync" FontSize="48" FontWeight="Light" Foreground="White" HorizontalAlignment="Center" Margin="0,0,0,10">
-                    <TextBlock.Effect>
-                        <DropShadowEffect BlurRadius="20" ShadowDepth="0" Color="White" Opacity="0.5"/>
-                    </TextBlock.Effect>
-                </TextBlock>
-                <TextBlock Text="Scan to sync your world." Foreground="#BBBBBB" FontSize="18" HorizontalAlignment="Center" Margin="0,0,0,40" FontWeight="SemiBold"/>
-                
-                <Border Padding="30" CornerRadius="24" Background="{StaticResource CardGradient}" BorderBrush="#33FFFFFF" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,40">
-                    <Border.Effect>
-                        <DropShadowEffect BlurRadius="40" Color="Black" Opacity="0.4" ShadowDepth="10"/>
-                    </Border.Effect>
-                    <Border Background="White" Padding="15" CornerRadius="12">
-                        <Image x:Name="QrCodeImage" Width="260" Height="260" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                    </Border>
-                </Border>
+            <Grid Margin="56">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.1*"/>
+                    <ColumnDefinition Width="0.9*"/>
+                </Grid.ColumnDefinitions>
 
-                <Border Background="{StaticResource CardGradient}" CornerRadius="10" Padding="20,10" Margin="0,0,0,30" HorizontalAlignment="Center" x:Name="PinPanel">
-                    <StackPanel Orientation="Horizontal">
-                        <StackPanel.Resources>
-                            <Style TargetType="Border">
-                                <Setter Property="CornerRadius" Value="10" />
-                            </Style>
-                        </StackPanel.Resources>
-                        <TextBlock Text="MANUAL PIN :" FontSize="16" Foreground="#DDDDDD" VerticalAlignment="Center" Margin="0,0,15,0" FontWeight="Medium"/>
-                        <Border Background="{StaticResource AccentGradient}" Padding="15,5" CornerRadius="8">
-                            <TextBlock x:Name="PairingCodeText" Text="----" FontSize="26" FontWeight="Black" Foreground="White" VerticalAlignment="Center" />
-                        </Border>
-                    </StackPanel>
-                </Border>
-                
-                <TextBlock x:Name="NetworkStatusText" Text="Initialize connecting parameters..." Margin="0,0,0,0" TextWrapping="Wrap" TextAlignment="Center" FontSize="14" Foreground="#FF9E9E9E" FontWeight="Medium"/>
-            </StackPanel>
-        </Grid>
+                <StackPanel VerticalAlignment="Center" Margin="0,0,28,0">
+                    <TextBlock Text="CouchSync" FontSize="54" FontWeight="SemiBold" Foreground="White"/>
+                    <TextBlock Text="A simpler phone-to-PC bridge for notifications." Margin="0,10,0,24" FontSize="20" Foreground="#D8E5F2"/>
+                    <TextBlock Text="Pair once with the QR code. After that, the phone should reconnect without asking the user to save settings again." TextWrapping="Wrap" FontSize="16" Foreground="{StaticResource TextMuted}"/>
 
-        <!-- MAIN SCREEN -->
-        <Grid x:Name="MainScreen" Visibility="Collapsed">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="320" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <!-- Sidebar -->
-            <Border Grid.Column="0" Background="{StaticResource CardGradient}" BorderBrush="#22FFFFFF" BorderThickness="0,0,1,0">
-                <StackPanel Margin="30">
-                    <TextBlock Text="CouchSync" FontSize="32" FontWeight="Light" Foreground="White" Margin="0,0,0,40">
-                        <TextBlock.Effect>
-                            <DropShadowEffect BlurRadius="15" ShadowDepth="0" Color="White" Opacity="0.4"/>
-                        </TextBlock.Effect>
-                    </TextBlock>
-                    
-                    <Border Background="{StaticResource AccentGradient}" CornerRadius="16" Padding="20" Margin="0,0,0,30">
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="20" ShadowDepth="5" Color="#EE0979" Opacity="0.5"/>
-                        </Border.Effect>
+                    <Border Margin="0,28,0,0" Padding="24" CornerRadius="24" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1">
                         <StackPanel>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <materialDesign:PackIcon Kind="Cellphone" Width="30" Height="30" Foreground="White" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="Connected Device" FontSize="12" Foreground="#EEFFFFFF" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="Android Remote" FontSize="18" FontWeight="Bold" Foreground="White" TextTrimming="CharacterEllipsis"/>
-                                </StackPanel>
-                            </Grid>
-                            <Border Background="#33000000" CornerRadius="8" Padding="10" Margin="0,15,0,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <Ellipse Width="8" Height="8" Fill="#00FF00" Margin="0,0,8,0" VerticalAlignment="Center">
-                                        <Ellipse.Effect>
-                                            <DropShadowEffect BlurRadius="5" Color="#00FF00" ShadowDepth="0"/>
-                                        </Ellipse.Effect>
-                                    </Ellipse>
-                                    <TextBlock Text="Receiving Notifications" FontSize="12" Foreground="White" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Border>
+                            <TextBlock Text="Why this flow exists" FontSize="18" FontWeight="SemiBold" Foreground="White"/>
+                            <TextBlock Text="1. Scan the QR code on the Android app." Margin="0,14,0,0" Foreground="{StaticResource TextMuted}"/>
+                            <TextBlock Text="2. Give notification access on Android." Margin="0,8,0,0" Foreground="{StaticResource TextMuted}"/>
+                            <TextBlock Text="3. CouchSync keeps the session trusted and reconnects automatically when the phone comes back online." Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{StaticResource TextMuted}"/>
                         </StackPanel>
                     </Border>
-                    
-                    <TextBlock Text="QUICK ACTIONS" FontSize="12" FontWeight="Bold" Foreground="#88FFFFFF" Margin="0,0,0,10" />
-                    <Button Style="{StaticResource MaterialDesignOutlinedButton}" Content="Clear All Alerts" Foreground="White" BorderBrush="#55FFFFFF" Margin="0,10" Height="45" materialDesign:ButtonAssist.CornerRadius="10" Click="ClearAlerts_Click"/>
+                </StackPanel>
+
+                <Border Grid.Column="1" Padding="28" CornerRadius="30" Background="#14FFFFFF" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1" VerticalAlignment="Center" MaxWidth="420">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="Scan to connect" FontSize="26" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Open the Android app and scan this code." Margin="0,8,0,22" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center"/>
+
+                        <Border Background="White" Padding="18" CornerRadius="22" HorizontalAlignment="Center">
+                            <Image x:Name="QrCodeImage" Width="250" Height="250" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                        </Border>
+
+                        <Border Margin="0,20,0,0" Background="#18000000" CornerRadius="18" Padding="18,14">
+                            <StackPanel>
+                                <TextBlock Text="Manual pairing code" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center"/>
+                                <Border Margin="0,10,0,0" Padding="16,8" CornerRadius="14" Background="{StaticResource AccentGradient}">
+                                    <TextBlock x:Name="PairingCodeText" Text="----" FontSize="30" FontWeight="Bold" Foreground="#07111F" HorizontalAlignment="Center"/>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock x:Name="NetworkStatusText" Margin="0,20,0,0" Text="Listening for your phone..." TextAlignment="Center" TextWrapping="Wrap" Foreground="{StaticResource TextMuted}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <Grid x:Name="MainScreen" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="330"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="#17000000" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="0,0,1,0">
+                <StackPanel Margin="28">
+                    <TextBlock Text="CouchSync" FontSize="34" FontWeight="SemiBold" Foreground="White"/>
+                    <TextBlock Text="Trusted link" Margin="0,4,0,28" Foreground="{StaticResource TextMuted}"/>
+
+                    <Border Padding="22" CornerRadius="24" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="Connected phone" Foreground="{StaticResource TextMuted}"/>
+                            <TextBlock x:Name="ConnectedDeviceNameText" Margin="0,8,0,0" Text="Android phone" FontSize="24" FontWeight="SemiBold" Foreground="White" TextWrapping="Wrap"/>
+
+                            <Border x:Name="ConnectionStatePill" Margin="0,18,0,0" Padding="12,8" CornerRadius="999" Background="#1FF7B955" HorizontalAlignment="Left">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse x:Name="ConnectionStateDot" Width="10" Height="10" Fill="{StaticResource WarningBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="ConnectionStateText" Margin="10,0,0,0" Text="Waiting for reconnect" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock x:Name="ConnectionDetailText" Margin="0,14,0,0" Text="Once the phone comes back online, CouchSync reconnects automatically." TextWrapping="Wrap" Foreground="{StaticResource TextMuted}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Margin="0,22,0,0" Padding="20" CornerRadius="22" Background="#10000000" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="Quick actions" FontSize="16" FontWeight="SemiBold" Foreground="White"/>
+                            <Button Style="{StaticResource MaterialDesignOutlinedButton}" Content="Clear All Alerts" Foreground="White" BorderBrush="#55FFFFFF" Margin="0,16,0,0" Height="46" materialDesign:ButtonAssist.CornerRadius="12" Click="ClearAlerts_Click"/>
+                            <TextBlock Margin="0,14,0,0" Text="Clears the in-app feed, Windows Action Center, and the linked phone copy." TextWrapping="Wrap" Foreground="{StaticResource TextMuted}"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Border>
 
-            <!-- Main Feed -->
-            <Grid Grid.Column="1">
+            <Grid Grid.Column="1" Margin="36,34,36,28">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Margin="40,40,40,20">
-                    <TextBlock Text="Recent Alerts" FontSize="36" FontWeight="SemiBold" Foreground="White"/>
-                    <TextBlock Text="Synced in real-time from your Android device." Foreground="#AABBBBBB" FontSize="15" Margin="0,5,0,0"/>
-                </StackPanel>
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <ScrollViewer Grid.Row="1" Margin="40,10,40,30" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <ItemsControl x:Name="NotificationList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <!-- Notification Card -->
-                                <Border Margin="0,0,0,15" Padding="25" CornerRadius="16" Background="#1AFFFFFF" BorderBrush="#22FFFFFF" BorderThickness="1">
-                                    <!-- Add simple hover animation via Triggers if possible, but keep simple for now -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <!-- App Name & Content -->
-                                        <StackPanel Grid.Column="0" Margin="0,0,20,0">
-                                            <Border Background="#33FFFFFF" HorizontalAlignment="Left" CornerRadius="4" Padding="8,4" Margin="0,0,0,10">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="BellOutline" Width="14" Height="14" Foreground="#EE0979" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                                    <TextBlock Text="{Binding AppName}" FontSize="12" FontWeight="SemiBold" Foreground="#DDDDDD" VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </Border>
-                                            <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,6"/>
-                                            <TextBlock Text="{Binding Content}" FontSize="15" Foreground="#BBBBBB" TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <!-- Timestamp -->
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right">
-                                            <TextBlock Text="{Binding Timestamp}" FontSize="13" Foreground="#888888" HorizontalAlignment="Right" Margin="0,0,0,10"/>
-                                            <Button Width="24" Height="24" Background="Transparent" BorderBrush="Transparent" Padding="0" HorizontalAlignment="Right" ToolTip="Dismiss" Click="DismissNotification_Click" Tag="{Binding}">
-                                                <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#888888"/>
-                                            </Button>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                    <StackPanel>
+                        <TextBlock Text="Notifications" FontSize="38" FontWeight="SemiBold" Foreground="White"/>
+                        <TextBlock Text="Mirrored from Android and kept in sync with Windows Action Center." Margin="0,8,0,0" Foreground="{StaticResource TextMuted}"/>
+                    </StackPanel>
+
+                    <Border Grid.Column="1" Background="#14000000" CornerRadius="20" Padding="18,12" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1" VerticalAlignment="Center">
+                        <StackPanel>
+                            <TextBlock Text="Visible right now" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Right"/>
+                            <TextBlock x:Name="NotificationCountText" Text="0 alerts" FontSize="24" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Right"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Grid Grid.Row="1" Margin="0,26,0,0">
+                    <Border Background="#12000000" CornerRadius="26" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="24">
+                        <ItemsControl x:Name="NotificationList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,16" Padding="22" CornerRadius="20" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                                                <Border Background="#18000000" HorizontalAlignment="Left" CornerRadius="10" Padding="10,6" Margin="0,0,0,12">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="BellBadgeOutline" Width="16" Height="16" Foreground="#57D18D" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                        <TextBlock Text="{Binding AppName}" FontSize="12" FontWeight="SemiBold" Foreground="#D8E5F2" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" Foreground="White" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding Content}" Margin="0,8,0,0" FontSize="15" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap"/>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                <TextBlock Text="{Binding Timestamp}" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Right"/>
+                                                <Button Width="34" Height="34" Margin="0,14,0,0" Background="Transparent" BorderBrush="Transparent" Padding="0" HorizontalAlignment="Right" ToolTip="Dismiss" Click="DismissNotification_Click" Tag="{Binding}">
+                                                    <materialDesign:PackIcon Kind="Close" Width="18" Height="18" Foreground="#D8E5F2"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <StackPanel x:Name="EmptyStatePanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="BellSleepOutline" Width="64" Height="64" Foreground="#3BD8E5F2" HorizontalAlignment="Center"/>
+                        <TextBlock Text="No active alerts" Margin="0,16,0,0" FontSize="24" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center"/>
+                        <TextBlock Text="New notifications will appear here as soon as the phone sends them." Margin="0,8,0,0" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" TextAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
             </Grid>
         </Grid>
     </Grid>
