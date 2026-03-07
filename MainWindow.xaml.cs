@@ -373,6 +373,23 @@ namespace CouchSync
             TrySendToPhone("{\"type\":\"clear_all\"}");
         }
 
+        private void ReconnectManually_Click(object sender, RoutedEventArgs e)
+        {
+            _sessionState.TrustedDeviceName = string.Empty;
+            _sessionState.PairingCode = Random.Shared.Next(1000, 9999).ToString();
+            SessionStore.Save(_sessionState);
+
+            _pairingCode = _sessionState.PairingCode;
+            PairingCodeText.Text = _pairingCode;
+            GenerateQrCode();
+
+            ApplyShellState(
+                isConnected: false,
+                detail: "Open the Android app and scan the new QR code.",
+                deviceName: string.Empty
+            );
+        }
+
         private void DismissNotification_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button button && button.Tag is NotificationItem item)
@@ -430,8 +447,9 @@ namespace CouchSync
                 : deviceName;
             ConnectionStateText.Text = isConnected ? "Connected" : "Waiting for reconnect";
             ConnectionDetailText.Text = detail;
-            ConnectionStateDot.Fill = CreateBrush(isConnected ? "#57D18D" : "#F7B955");
-            ConnectionStatePill.Background = CreateBrush(isConnected ? "#1F57D18D" : "#1FF7B955");
+            ConnectionStateDot.Fill = CreateBrush(isConnected ? "#8FA785" : "#C89A5D");
+            ConnectionStatePill.Background = CreateBrush(isConnected ? "#2A8FA785" : "#2AC89A5D");
+            ReconnectManuallyButton.Visibility = isConnected ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void RefreshNotificationSummary()
