@@ -121,7 +121,20 @@
 
                     <Border Margin="0,20,0,0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1" CornerRadius="12" Padding="18">
                         <StackPanel>
-                            <TextBlock Text="Actions" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBright}"/>
+                            <TextBlock Text="Actions &amp; Features" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBright}"/>
+
+                            <Grid Margin="0,16,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Clipboard Sync" Foreground="{StaticResource TextBright}" FontWeight="Medium"/>
+                                    <TextBlock Text="Sync text between PC and phone" Foreground="{StaticResource TextMuted}" FontSize="12" Margin="0,2,0,0"/>
+                                </StackPanel>
+                                <ToggleButton Grid.Column="1" x:Name="ClipboardSyncToggle" Click="ClipboardSyncToggle_Click" VerticalAlignment="Center" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
+                            </Grid>
+
                             <Button Margin="0,16,0,0" Height="44" Content="Clear All Alerts" Click="ClearAlerts_Click" Style="{StaticResource MaterialDesignOutlinedButton}" Foreground="{StaticResource TextBright}" BorderBrush="{StaticResource BorderBrushSoft}" materialDesign:ButtonAssist.CornerRadius="8"/>
                             <TextBlock Margin="0,14,0,0" Text="Clears the desktop feed, Windows Action Center, and the linked notification on the phone." Foreground="{StaticResource TextMuted}" TextWrapping="Wrap"/>
                         </StackPanel>

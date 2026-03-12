@@ -12,6 +12,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
+using System.Runtime.InteropServices;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.WinUI.Notifications;
@@ -30,6 +32,20 @@ namespace CouchSync
 
     public partial class MainWindow : Window
     {
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool AddClipboardFormatListener(IntPtr hwnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
+
+        private const int WM_CLIPBOARDUPDATE = 0x031D;
+        private IntPtr _hwnd = IntPtr.Zero;
+        private HwndSource? _hwndSource;
+        private string _lastCopiedText = string.Empty;
+        private bool _isHandlingIncomingClipboard = false;
+
         private const string ToastGroup = "CouchSync";
 
         private readonly AppSessionState _sessionState = SessionStore.Load();
@@ -53,6 +69,13 @@ namespace CouchSync
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            ClipboardSyncToggle.IsChecked = _sessionState.SyncClipboard;
+
+            _hwnd = new WindowInteropHelper(this).EnsureHandle();
+            _hwndSource = HwndSource.FromHwnd(_hwnd);
+            _hwndSource?.AddHook(HwndHook);
+            AddClipboardFormatListener(_hwnd);
+
             InitializeServer();
             ApplyShellState(isConnected: false, detail: _sessionState.HasTrustedDevice ? "Waiting for your phone to reconnect automatically." : "Open the Android app and scan the QR code.", deviceName: _sessionState.TrustedDeviceName);
             GenerateQrCode();
@@ -62,6 +85,12 @@ namespace CouchSync
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
+            if (_hwnd != IntPtr.Zero)
+            {
+                RemoveClipboardFormatListener(_hwnd);
+                _hwndSource?.RemoveHook(HwndHook);
+            }
+
             ToastNotificationManagerCompat.OnActivated -= ToastActivated;
             _cts.Cancel();
             _tcpListener?.Stop();
@@ -201,6 +230,9 @@ namespace CouchSync
                                 break;
                             case "notification_removed" when authenticated:
                                 HandleRemovedNotification(node);
+                                break;
+                            case "clipboard" when authenticated:
+                                HandleIncomingClipboard(node);
                                 break;
                             case "ping":
                                 break;
@@ -425,6 +457,63 @@ namespace CouchSync
             catch
             {
             }
+        }
+
+        private void ClipboardSyncToggle_Click(object sender, RoutedEventArgs e)
+        {
+            _sessionState.SyncClipboard = ClipboardSyncToggle.IsChecked == true;
+            SessionStore.Save(_sessionState);
+        }
+
+        private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == WM_CLIPBOARDUPDATE && _sessionState.SyncClipboard)
+            {
+                Dispatcher.InvokeAsync(async () =>
+                {
+                    if (_isHandlingIncomingClipboard) return;
+
+                    try
+                    {
+                        if (Clipboard.ContainsText())
+                        {
+                            string text = Clipboard.GetText();
+                            if (!string.IsNullOrEmpty(text) && text != _lastCopiedText)
+                            {
+                                _lastCopiedText = text;
+                                string safeText = JsonSerializer.Serialize(text);
+                                TrySendToPhone($"{{\"type\":\"clipboard\",\"text\":{safeText}}}");
+                            }
+                        }
+                    }
+                    catch { }
+                });
+            }
+            return IntPtr.Zero;
+        }
+
+        private void HandleIncomingClipboard(JsonNode node)
+        {
+            string text = node["text"]?.ToString() ?? string.Empty;
+            if (string.IsNullOrEmpty(text) || !_sessionState.SyncClipboard) return;
+
+            Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    if (text != _lastCopiedText)
+                    {
+                        _isHandlingIncomingClipboard = true;
+                        _lastCopiedText = text;
+                        Clipboard.SetText(text);
+                    }
+                }
+                catch { }
+                finally
+                {
+                    _isHandlingIncomingClipboard = false;
+                }
+            });
         }
 
         private void ApplyShellState(bool isConnected, string detail, string? deviceName)

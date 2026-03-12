@@ -8,6 +8,7 @@ namespace CouchSync
     {
         public string PairingCode { get; set; } = string.Empty;
         public string TrustedDeviceName { get; set; } = string.Empty;
+        public bool SyncClipboard { get; set; } = true;
 
         public bool HasTrustedDevice => !string.IsNullOrWhiteSpace(TrustedDeviceName);
     }
