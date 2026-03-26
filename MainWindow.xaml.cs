@@ -16,6 +16,7 @@ using System.Windows.Interop;
 using System.Runtime.InteropServices;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Microsoft.Win32;
 using CommunityToolkit.WinUI.Notifications;
 using QRCoder;
 
@@ -32,6 +33,9 @@ namespace CouchSync
 
     public partial class MainWindow : Window
     {
+        private const string StartupRegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+        private const string StartupValueName = "CouchSync";
+
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool AddClipboardFormatListener(IntPtr hwnd);
@@ -62,6 +66,12 @@ namespace CouchSync
         {
             InitializeComponent();
             NotificationList.ItemsSource = _notifications;
+
+            if (WasStartedFromWindowsStartup())
+            {
+                WindowState = WindowState.Minimized;
+            }
+
             Loaded += MainWindow_Loaded;
             Closing += MainWindow_Closing;
             ToastNotificationManagerCompat.OnActivated += ToastActivated;
@@ -69,6 +79,7 @@ namespace CouchSync
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            EnsureRunOnWindowsStartup();
             ClipboardSyncToggle.IsChecked = _sessionState.SyncClipboard;
 
             _hwnd = new WindowInteropHelper(this).EnsureHandle();
@@ -81,6 +92,44 @@ namespace CouchSync
             GenerateQrCode();
             RefreshNotificationSummary();
             await StartListeningAsync();
+        }
+
+        private static bool WasStartedFromWindowsStartup()
+        {
+            return Environment.GetCommandLineArgs()
+                .Any(arg => string.Equals(arg, "--startup", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void EnsureRunOnWindowsStartup()
+        {
+            try
+            {
+                string? exePath = Environment.ProcessPath;
+                if (string.IsNullOrWhiteSpace(exePath))
+                {
+                    return;
+                }
+
+                string startupCommand = $"\"{exePath}\" --startup";
+
+                using RegistryKey? key = Registry.CurrentUser.OpenSubKey(StartupRegistryPath, writable: true)
+                    ?? Registry.CurrentUser.CreateSubKey(StartupRegistryPath, writable: true);
+
+                if (key == null)
+                {
+                    return;
+                }
+
+                string? existingCommand = key.GetValue(StartupValueName) as string;
+                if (!string.Equals(existingCommand, startupCommand, StringComparison.OrdinalIgnoreCase))
+                {
+                    key.SetValue(StartupValueName, startupCommand, RegistryValueKind.String);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Startup registration failed: {ex.Message}");
+            }
         }
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
