@@ -55,6 +55,7 @@ namespace CouchSync
         private readonly AppSessionState _sessionState = SessionStore.Load();
         private readonly ObservableCollection<NotificationItem> _notifications = new();
         private readonly CancellationTokenSource _cts = new();
+        private readonly DiscordRelayService _discordRelay = new();
 
         private TcpListener? _tcpListener;
         private StreamWriter? _currentClientWriter;
@@ -81,6 +82,10 @@ namespace CouchSync
         {
             EnsureRunOnWindowsStartup();
             ClipboardSyncToggle.IsChecked = _sessionState.SyncClipboard;
+            DiscordRelayToggle.IsChecked = _sessionState.DiscordRelayEnabled;
+            DiscordBotTokenBox.Password = _sessionState.DiscordBotToken;
+            DiscordUserIdTextBox.Text = _sessionState.DiscordTargetUserId;
+            ConfigureDiscordRelay();
 
             _hwnd = new WindowInteropHelper(this).EnsureHandle();
             _hwndSource = HwndSource.FromHwnd(_hwnd);
@@ -143,6 +148,7 @@ namespace CouchSync
             ToastNotificationManagerCompat.OnActivated -= ToastActivated;
             _cts.Cancel();
             _tcpListener?.Stop();
+            _discordRelay.Dispose();
         }
 
         private void InitializeServer()
@@ -336,6 +342,43 @@ namespace CouchSync
                     ShowToast(app, title, text, key);
                 }
             });
+
+            if (!isHistoric)
+            {
+                _ = RelayNotificationToDiscordAsync(app, title, text);
+            }
+        }
+
+        private async Task RelayNotificationToDiscordAsync(string app, string title, string text)
+        {
+            if (!_sessionState.DiscordRelayEnabled)
+            {
+                return;
+            }
+
+            if (!_discordRelay.HasValidConfiguration())
+            {
+                Dispatcher.Invoke(() => DiscordRelayStatusText.Text = "Discord relay enabled but bot token/user ID is invalid.");
+                return;
+            }
+
+            try
+            {
+                var result = await _discordRelay.SendNotificationAsync(app, title, text, _cts.Token);
+                Dispatcher.Invoke(() =>
+                {
+                    DiscordRelayStatusText.Text = result.Success
+                        ? $"Discord sent at {DateTime.Now:HH:mm:ss}."
+                        : $"Discord error: {result.Message}";
+                });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.Invoke(() => DiscordRelayStatusText.Text = $"Discord error: {ex.Message}");
+            }
         }
 
         private void HandleRemovedNotification(JsonNode node)
@@ -512,6 +555,74 @@ namespace CouchSync
         {
             _sessionState.SyncClipboard = ClipboardSyncToggle.IsChecked == true;
             SessionStore.Save(_sessionState);
+        }
+
+        private void DiscordRelayToggle_Click(object sender, RoutedEventArgs e)
+        {
+            SaveDiscordSettingsFromUi();
+        }
+
+        private void SaveDiscordRelay_Click(object sender, RoutedEventArgs e)
+        {
+            SaveDiscordSettingsFromUi();
+        }
+
+        private async void TestDiscordRelay_Click(object sender, RoutedEventArgs e)
+        {
+            SaveDiscordSettingsFromUi();
+
+            if (!_sessionState.DiscordRelayEnabled)
+            {
+                DiscordRelayStatusText.Text = "Enable Discord relay first.";
+                return;
+            }
+
+            if (!_discordRelay.HasValidConfiguration())
+            {
+                DiscordRelayStatusText.Text = "Enter a valid bot token and numeric Discord user ID.";
+                return;
+            }
+
+            DiscordRelayStatusText.Text = "Sending Discord test message...";
+
+            try
+            {
+                var result = await _discordRelay.SendTestMessageAsync(_cts.Token);
+                DiscordRelayStatusText.Text = result.Success
+                    ? "Discord test sent successfully."
+                    : $"Discord test failed: {result.Message}";
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                DiscordRelayStatusText.Text = $"Discord test failed: {ex.Message}";
+            }
+        }
+
+        private void SaveDiscordSettingsFromUi()
+        {
+            _sessionState.DiscordRelayEnabled = DiscordRelayToggle.IsChecked == true;
+            _sessionState.DiscordBotToken = DiscordBotTokenBox.Password.Trim();
+            _sessionState.DiscordTargetUserId = DiscordUserIdTextBox.Text.Trim();
+            SessionStore.Save(_sessionState);
+            ConfigureDiscordRelay();
+        }
+
+        private void ConfigureDiscordRelay()
+        {
+            _discordRelay.Configure(_sessionState.DiscordBotToken, _sessionState.DiscordTargetUserId);
+
+            if (!_sessionState.DiscordRelayEnabled)
+            {
+                DiscordRelayStatusText.Text = "Discord relay is off.";
+                return;
+            }
+
+            DiscordRelayStatusText.Text = _discordRelay.HasValidConfiguration()
+                ? "Discord relay is ready."
+                : "Enter bot token and numeric Discord user ID.";
         }
 
         private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)

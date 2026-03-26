@@ -121,97 +121,188 @@
 
                     <Border Margin="0,20,0,0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1" CornerRadius="12" Padding="18">
                         <StackPanel>
-                            <TextBlock Text="Actions &amp; Features" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBright}"/>
-
-                            <Grid Margin="0,16,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="Clipboard Sync" Foreground="{StaticResource TextBright}" FontWeight="Medium"/>
-                                    <TextBlock Text="Sync text between PC and phone" Foreground="{StaticResource TextMuted}" FontSize="12" Margin="0,2,0,0"/>
-                                </StackPanel>
-                                <ToggleButton Grid.Column="1" x:Name="ClipboardSyncToggle" Click="ClipboardSyncToggle_Click" VerticalAlignment="Center" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
-                            </Grid>
-
-                            <Button Margin="0,16,0,0" Height="44" Content="Clear All Alerts" Click="ClearAlerts_Click" Style="{StaticResource MaterialDesignOutlinedButton}" Foreground="{StaticResource TextBright}" BorderBrush="{StaticResource BorderBrushSoft}" materialDesign:ButtonAssist.CornerRadius="8"/>
-                            <TextBlock Margin="0,14,0,0" Text="Clears the desktop feed, Windows Action Center, and the linked notification on the phone." Foreground="{StaticResource TextMuted}" TextWrapping="Wrap"/>
+                            <TextBlock Text="Workspace" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBright}"/>
+                            <TextBlock Margin="0,12,0,0" Text="Open the Settings tab to manage clipboard sync, Discord relay, and alert controls." Foreground="{StaticResource TextMuted}" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
             </Border>
 
             <Grid Grid.Column="1" Margin="28">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+                <TabControl Background="Transparent" BorderBrush="{StaticResource BorderBrushSoft}" Foreground="{StaticResource TextBright}">
+                    <TabItem Header="Notifications">
+                        <Grid Margin="20">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="220"/>
-                    </Grid.ColumnDefinitions>
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="220"/>
+                                </Grid.ColumnDefinitions>
 
-                    <StackPanel>
-                        <TextBlock Text="Notifications" FontSize="30" FontWeight="SemiBold" Foreground="{StaticResource TextBright}"/>
-                        <TextBlock Text="Live desktop view with Action Center sync." Margin="0,8,0,0" Foreground="{StaticResource TextMuted}"/>
-                    </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Notifications" FontSize="30" FontWeight="SemiBold" Foreground="{StaticResource TextBright}"/>
+                                    <TextBlock Text="Live desktop view with Action Center sync." Margin="0,8,0,0" Foreground="{StaticResource TextMuted}"/>
+                                </StackPanel>
 
-                    <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1" CornerRadius="12" Padding="16,12" HorizontalAlignment="Right">
-                        <StackPanel>
-                            <TextBlock Text="Visible now" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Right"/>
-                            <TextBlock x:Name="NotificationCountText" Margin="0,4,0,0" Text="0 alerts" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource TextBright}" HorizontalAlignment="Right"/>
-                        </StackPanel>
-                    </Border>
-                </Grid>
+                                <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1" CornerRadius="12" Padding="16,12" HorizontalAlignment="Right">
+                                    <StackPanel>
+                                        <TextBlock Text="Visible now" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Right"/>
+                                        <TextBlock x:Name="NotificationCountText" Margin="0,4,0,0" Text="0 alerts" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource TextBright}" HorizontalAlignment="Right"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
 
-                <Grid Grid.Row="1" Margin="0,22,0,0">
-                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1" CornerRadius="14"/>
-                    <Grid>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                            <ItemsControl x:Name="NotificationList" Margin="20">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Margin="0,0,0,14" Padding="18" CornerRadius="10" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
+                            <Grid Grid.Row="1" Margin="0,22,0,0">
+                                <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1" CornerRadius="14"/>
+                                <Grid>
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsControl x:Name="NotificationList" Margin="20">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Margin="0,0,0,14" Padding="18" CornerRadius="10" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
 
-                                                <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                                    <Border Background="#22313A44" BorderBrush="#33515E6D" BorderThickness="1" CornerRadius="12" Padding="8,4" HorizontalAlignment="Left">
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <materialDesign:PackIcon Kind="BellBadgeOutline" Width="15" Height="15" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                                            <TextBlock Text="{Binding AppName}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextBright}"/>
-                                                        </StackPanel>
+                                                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                                                <Border Background="#22313A44" BorderBrush="#33515E6D" BorderThickness="1" CornerRadius="12" Padding="8,4" HorizontalAlignment="Left">
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <materialDesign:PackIcon Kind="BellBadgeOutline" Width="15" Height="15" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                                        <TextBlock Text="{Binding AppName}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextBright}"/>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                                <TextBlock Text="{Binding Title}" Margin="0,12,0,0" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBright}" TextWrapping="Wrap"/>
+                                                                <TextBlock Text="{Binding Content}" Margin="0,8,0,0" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap"/>
+                                                            </StackPanel>
+
+                                                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                                <TextBlock Text="{Binding Timestamp}" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Right"/>
+                                                                <Button Width="32" Height="32" Margin="0,12,0,0" Background="Transparent" BorderBrush="Transparent" Padding="0" ToolTip="Dismiss" Click="DismissNotification_Click" Tag="{Binding}">
+                                                                    <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="{StaticResource TextMuted}"/>
+                                                                </Button>
+                                                            </StackPanel>
+                                                        </Grid>
                                                     </Border>
-                                                    <TextBlock Text="{Binding Title}" Margin="0,12,0,0" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBright}" TextWrapping="Wrap"/>
-                                                    <TextBlock Text="{Binding Content}" Margin="0,8,0,0" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap"/>
-                                                </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
 
-                                                <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                                                    <TextBlock Text="{Binding Timestamp}" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Right"/>
-                                                    <Button Width="32" Height="32" Margin="0,12,0,0" Background="Transparent" BorderBrush="Transparent" Padding="0" ToolTip="Dismiss" Click="DismissNotification_Click" Tag="{Binding}">
-                                                        <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="{StaticResource TextMuted}"/>
-                                                    </Button>
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                                    <StackPanel x:Name="EmptyStatePanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <materialDesign:PackIcon Kind="BellSleepOutline" Width="54" Height="54" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="No active alerts" Margin="0,16,0,0" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource TextBright}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Incoming notifications from the phone will appear here." Margin="0,8,0,0" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+                    </TabItem>
+
+                    <TabItem Header="Settings">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="20">
+                                <TextBlock Text="Settings" FontSize="30" FontWeight="SemiBold" Foreground="{StaticResource TextBright}"/>
+                                <TextBlock Text="Manage clipboard sync, Discord relay, and desktop actions." Margin="0,8,0,0" Foreground="{StaticResource TextMuted}"/>
+
+                                <Border Margin="0,22,0,0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrushSoft}" BorderThickness="1" CornerRadius="12" Padding="18">
+                                    <StackPanel>
+                                        <TextBlock Text="Clipboard" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBright}"/>
+
+                                        <Grid Margin="0,14,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="Clipboard Sync" Foreground="{StaticResource TextBright}" FontWeight="Medium"/>
+                                                <TextBlock Text="Sync text between PC and phone" Foreground="{StaticResource TextMuted}" FontSize="12" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <ToggleButton Grid.Column="1" x:Name="ClipboardSyncToggle" Click="ClipboardSyncToggle_Click" VerticalAlignment="Center" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
+                                        </Grid>
+
+                                        <Border Margin="0,16,0,0" Height="1" Background="{StaticResource BorderBrushSoft}" Opacity="0.5"/>
+
+                                        <TextBlock Text="Discord Relay" Margin="0,14,0,0" Foreground="{StaticResource TextBright}" FontWeight="Medium"/>
+                                        <TextBlock Text="Send incoming phone notifications to a Discord DM via your bot." Foreground="{StaticResource TextMuted}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Enable relay" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"/>
+                                            <ToggleButton Grid.Column="1" x:Name="DiscordRelayToggle" Click="DiscordRelayToggle_Click" VerticalAlignment="Center" Style="{StaticResource MaterialDesignSwitchToggleButton}"/>
+                                        </Grid>
+
+                                        <TextBlock Text="Bot Token" Margin="0,12,0,0" Foreground="{StaticResource TextMuted}" FontSize="12"/>
+                                        <PasswordBox x:Name="DiscordBotTokenBox"
+                                                     Margin="0,6,0,0"
+                                                     Height="36"
+                                                     Foreground="{StaticResource TextBright}"
+                                                     Background="{StaticResource CardBrushSoft}"
+                                                     BorderBrush="{StaticResource BorderBrushSoft}"
+                                                     BorderThickness="1"
+                                                     Padding="10,8"/>
+
+                                        <TextBlock Text="Target Discord User ID" Margin="0,10,0,0" Foreground="{StaticResource TextMuted}" FontSize="12"/>
+                                        <TextBox x:Name="DiscordUserIdTextBox"
+                                                 Margin="0,6,0,0"
+                                                 Height="36"
+                                                 Foreground="{StaticResource TextBright}"
+                                                 Background="{StaticResource CardBrushSoft}"
+                                                 BorderBrush="{StaticResource BorderBrushSoft}"
+                                                 BorderThickness="1"
+                                                 Padding="10,8"/>
+
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="10"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <Button Grid.Column="0"
+                                                    Height="36"
+                                                    Content="Save Discord"
+                                                    Click="SaveDiscordRelay_Click"
+                                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                                    Foreground="{StaticResource TextBright}"
+                                                    BorderBrush="{StaticResource BorderBrushSoft}"
+                                                    materialDesign:ButtonAssist.CornerRadius="8"/>
+
+                                            <Button Grid.Column="2"
+                                                    Height="36"
+                                                    Content="Send Test"
+                                                    Click="TestDiscordRelay_Click"
+                                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                                    Foreground="{StaticResource TextBright}"
+                                                    BorderBrush="{StaticResource BorderBrushSoft}"
+                                                    materialDesign:ButtonAssist.CornerRadius="8"/>
+                                        </Grid>
+
+                                        <TextBlock x:Name="DiscordRelayStatusText"
+                                                   Margin="0,10,0,0"
+                                                   Foreground="{StaticResource TextMuted}"
+                                                   TextWrapping="Wrap"
+                                                   FontSize="12"
+                                                   Text="Discord relay is off."/>
+
+                                        <Border Margin="0,16,0,0" Height="1" Background="{StaticResource BorderBrushSoft}" Opacity="0.5"/>
+
+                                        <Button Margin="0,16,0,0" Height="44" Content="Clear All Alerts" Click="ClearAlerts_Click" Style="{StaticResource MaterialDesignOutlinedButton}" Foreground="{StaticResource TextBright}" BorderBrush="{StaticResource BorderBrushSoft}" materialDesign:ButtonAssist.CornerRadius="8"/>
+                                        <TextBlock Margin="0,10,0,0" Text="Clears the desktop feed, Windows Action Center, and linked notifications on the phone." Foreground="{StaticResource TextMuted}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
                         </ScrollViewer>
-
-                        <StackPanel x:Name="EmptyStatePanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <materialDesign:PackIcon Kind="BellSleepOutline" Width="54" Height="54" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="No active alerts" Margin="0,16,0,0" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource TextBright}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Incoming notifications from the phone will appear here." Margin="0,8,0,0" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center" TextAlignment="Center"/>
-                        </StackPanel>
-                    </Grid>
-                </Grid>
+                    </TabItem>
+                </TabControl>
             </Grid>
         </Grid>
     </Grid>
