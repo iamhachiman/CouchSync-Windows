@@ -56,6 +56,12 @@ namespace CouchSync
         private readonly ObservableCollection<NotificationItem> _notifications = new();
         private readonly CancellationTokenSource _cts = new();
         private readonly DiscordRelayService _discordRelay = new();
+        private readonly bool _startedFromWindowsStartup = WasStartedFromWindowsStartup();
+
+        private System.Windows.Forms.NotifyIcon? _trayIcon;
+        private System.Drawing.Icon? _trayOwnedIcon;
+        private bool _isExitRequested;
+        private bool _hasShownTrayHint;
 
         private TcpListener? _tcpListener;
         private StreamWriter? _currentClientWriter;
@@ -67,8 +73,9 @@ namespace CouchSync
         {
             InitializeComponent();
             NotificationList.ItemsSource = _notifications;
+            InitializeTrayIcon();
 
-            if (WasStartedFromWindowsStartup())
+            if (_startedFromWindowsStartup)
             {
                 WindowState = WindowState.Minimized;
             }
@@ -96,7 +103,90 @@ namespace CouchSync
             ApplyShellState(isConnected: false, detail: _sessionState.HasTrustedDevice ? "Waiting for your phone to reconnect automatically." : "Open the Android app and scan the QR code.", deviceName: _sessionState.TrustedDeviceName);
             GenerateQrCode();
             RefreshNotificationSummary();
+
+            if (_startedFromWindowsStartup)
+            {
+                HideToTray(showHint: false);
+            }
+
             await StartListeningAsync();
+        }
+
+        private void InitializeTrayIcon()
+        {
+            _trayOwnedIcon = TryGetTrayIcon();
+            _trayIcon = new System.Windows.Forms.NotifyIcon
+            {
+                Text = "CouchSync",
+                Icon = _trayOwnedIcon ?? System.Drawing.SystemIcons.Application,
+                Visible = true
+            };
+
+            _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(RestoreFromTray);
+
+            var contextMenu = new System.Windows.Forms.ContextMenuStrip();
+            var openItem = new System.Windows.Forms.ToolStripMenuItem("Open CouchSync");
+            openItem.Click += (_, _) => Dispatcher.Invoke(RestoreFromTray);
+
+            var exitItem = new System.Windows.Forms.ToolStripMenuItem("Exit");
+            exitItem.Click += (_, _) => Dispatcher.Invoke(ExitApplicationFromTray);
+
+            contextMenu.Items.Add(openItem);
+            contextMenu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+            contextMenu.Items.Add(exitItem);
+
+            _trayIcon.ContextMenuStrip = contextMenu;
+        }
+
+        private static System.Drawing.Icon? TryGetTrayIcon()
+        {
+            try
+            {
+                string? processPath = Environment.ProcessPath;
+                return string.IsNullOrWhiteSpace(processPath)
+                    ? null
+                    : System.Drawing.Icon.ExtractAssociatedIcon(processPath);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void HideToTray(bool showHint)
+        {
+            ShowInTaskbar = false;
+            Hide();
+
+            if (showHint && !_hasShownTrayHint)
+            {
+                _trayIcon?.ShowBalloonTip(
+                    2400,
+                    "CouchSync is still running",
+                    "Double-click the tray icon to reopen the window.",
+                    System.Windows.Forms.ToolTipIcon.Info);
+                _hasShownTrayHint = true;
+            }
+        }
+
+        private void RestoreFromTray()
+        {
+            Show();
+            ShowInTaskbar = true;
+
+            if (WindowState == WindowState.Minimized)
+            {
+                WindowState = WindowState.Normal;
+            }
+
+            Activate();
+            Focus();
+        }
+
+        private void ExitApplicationFromTray()
+        {
+            _isExitRequested = true;
+            Close();
         }
 
         private static bool WasStartedFromWindowsStartup()
@@ -139,6 +229,13 @@ namespace CouchSync
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
+            if (!_isExitRequested)
+            {
+                e.Cancel = true;
+                HideToTray(showHint: true);
+                return;
+            }
+
             if (_hwnd != IntPtr.Zero)
             {
                 RemoveClipboardFormatListener(_hwnd);
@@ -149,6 +246,18 @@ namespace CouchSync
             _cts.Cancel();
             _tcpListener?.Stop();
             _discordRelay.Dispose();
+
+            if (_trayIcon != null)
+            {
+                var menu = _trayIcon.ContextMenuStrip;
+                _trayIcon.Visible = false;
+                _trayIcon.Dispose();
+                _trayIcon = null;
+                menu?.Dispose();
+            }
+
+            _trayOwnedIcon?.Dispose();
+            _trayOwnedIcon = null;
         }
 
         private void InitializeServer()
@@ -479,13 +588,7 @@ namespace CouchSync
                 {
                 }
 
-                if (WindowState == WindowState.Minimized)
-                {
-                    WindowState = WindowState.Normal;
-                }
-
-                Activate();
-                Focus();
+                RestoreFromTray();
             });
         }
 
@@ -516,7 +619,7 @@ namespace CouchSync
 
         private void DismissNotification_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button && button.Tag is NotificationItem item)
+            if (sender is System.Windows.Controls.Button button && button.Tag is NotificationItem item)
             {
                 RemoveNotificationEverywhere(item.Key, propagateToPhone: true);
             }
@@ -635,9 +738,9 @@ namespace CouchSync
 
                     try
                     {
-                        if (Clipboard.ContainsText())
+                        if (System.Windows.Clipboard.ContainsText())
                         {
-                            string text = Clipboard.GetText();
+                            string text = System.Windows.Clipboard.GetText();
                             if (!string.IsNullOrEmpty(text) && text != _lastCopiedText)
                             {
                                 _lastCopiedText = text;
@@ -693,7 +796,7 @@ namespace CouchSync
             {
                 try
                 {
-                    Clipboard.SetText(text);
+                    System.Windows.Clipboard.SetText(text);
                     return true;
                 }
                 catch (COMException)
