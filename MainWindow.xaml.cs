@@ -553,8 +553,16 @@ namespace CouchSync
                     if (text != _lastCopiedText)
                     {
                         _isHandlingIncomingClipboard = true;
-                        _lastCopiedText = text;
-                        Clipboard.SetText(text);
+
+                        if (TrySetClipboardTextWithRetry(text))
+                        {
+                            _lastCopiedText = text;
+                            System.Diagnostics.Debug.WriteLine($"Clipboard updated from phone ({text.Length} chars)");
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine("Failed to set clipboard from phone after retries.");
+                        }
                     }
                 }
                 catch { }
@@ -563,6 +571,36 @@ namespace CouchSync
                     _isHandlingIncomingClipboard = false;
                 }
             });
+        }
+
+        private static bool TrySetClipboardTextWithRetry(string text)
+        {
+            const int maxAttempts = 5;
+            const int delayMs = 60;
+
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    Clipboard.SetText(text);
+                    return true;
+                }
+                catch (COMException)
+                {
+                    if (attempt == maxAttempts)
+                    {
+                        return false;
+                    }
+
+                    Thread.Sleep(delayMs);
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+
+            return false;
         }
 
         private void ApplyShellState(bool isConnected, string detail, string? deviceName)
